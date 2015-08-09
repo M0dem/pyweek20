@@ -1,9 +1,10 @@
-Your Game Title
+Data smack
 ===============
 
-Entry in PyWeek #20  <http://www.pyweek.org/4/>
-Team: YOUR TEAM NAME (leave the "Team: bit")
-Members: YOUR TEAM MEMBERS (leave the "Members: bit")
+Entry in PyWeek #20  <http://www.pyweek.org/20/>
+Team: m0dem
+Members: m0dem
+
 
 
 DEPENDENCIES:
@@ -11,22 +12,26 @@ DEPENDENCIES:
 You might need to install some of these before running the game:
 
   Python:     http://www.python.org/
-  PyGame:     http://www.pygame.org/
-  PyOpenGL:   http://pyopengl.sf.net/
+  Pyglet:     http://www.pyglet.org/
+  Cocos2D:    http://www.python.cocos2d.org/
 
 
 
- RUNNING THE GAME: 
+RUNNING THE GAME:
 
 On Windows or Mac OS X, locate the "run_game.pyw" file and double-click it.
 
 Othewise open a terminal / console and "cd" to the game directory and run:
 
-  python run_game.py HOW TO PLAY THE GAME:
+  python run_game.py
 
-Move the cursor around the screen with the mouse.
 
-Press the left mouse button to fire the ducks.
+
+HOW TO PLAY THE GAME:
+
+update this area..........
+..............................
+..........................
 
 
 
@@ -34,3 +39,5 @@ LICENSE:
 
 This game skellington is placed in the Public Domain.
 
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+||||||||||   fix  |||||||||||
