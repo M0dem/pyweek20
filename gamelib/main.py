@@ -26,10 +26,10 @@ class MainGameLayer(cocos.layer.Layer):
         self.bob = Player((200, 200))
         self.add(self.bob)
 
-        self.dat = Data((200, 50))
-        self.add(self.dat)
+        '''self.dat = Data((200, 50))
+        self.add(self.dat)'''
 
-        self.ourCollider = PlayerCollider()
+        self.ourCollider = PlayerCollider(self.bob)
 
         '''self.collisionManager = collision_model.CollisionManagerBruteForce()'''
 
@@ -56,26 +56,30 @@ class MainGameLayer(cocos.layer.Layer):
         ######################################################
 
         if "W" in keyNames:
-            if self.bob.velocity.y == 0:
-                self.bob.doJump = True
+            if self.bob.doY == 0:
+                self.bob.doY += self.bob.JUMP_SPEED
                 self.bob.doGravity = True
 
         if "A" in keyNames:
-            self.bob.velocity.x -= self.bob.WALK_SPEED * deltaTime
+            self.bob.doX -= self.bob.WALK_SPEED * deltaTime
 
         if "D" in keyNames:
-            self.bob.velocity.x += self.bob.WALK_SPEED * deltaTime
+            self.bob.doX += self.bob.WALK_SPEED * deltaTime
 
         if "A" not in keyNames and "D" not in keyNames:
-            self.bob.velocity.x = 0
+            self.bob.doX = 0
 
         ######################################################
 
-        lastBob = self.bob.get_rect()
-        newBob = lastBob.copy()
+        self.bob.doY -= self.bob.GRAVITY_SPEED * deltaTime
 
+        last = self.bob.get_rect()
+        new = last.copy()
+        new.x += self.bob.doX
+        new.y += self.bob.doY
+        self.ourCollider.collide_map(ourMapLayer, last, new, self.bob.doY, self.bob.doX)
 
-        self.bob.update(deltaTime)
+        self.bob.update()
 
     def on_key_press(self, key, modifiers):
         self.keysPressed.add(key)
@@ -91,49 +95,19 @@ class Player(OurSprite):
 
         self.cshape = collision_model.AARectShape(self.position, self.width // 2, self.height // 2)
 
+        self.doX = 0
+        self.doY = 0
+
         self.doGravity = True
-        self.GRAVITY = 500
+        self.GRAVITY_SPEED = 10
 
-        self.doJump = False
-        self.JUMP_SPEED = 20000
+        self.JUMP_SPEED = 7
 
-        self.WALK_SPEED = 1000
+        self.WALK_SPEED = 10
 
-        self.velocity = cocos.euclid.Vector2()
-
-    '''def update(self, deltaTime):
-        if self.doGravity:
-            self.gravitate(self.GRAVITY * deltaTime)
-
-        if self.doJump:
-            self.jumpUp(self.JUMP_SPEED * deltaTime)
-            self.doJump = False
-
-        self.moveBy(self.velocity * deltaTime)
-        self.cshape.center = self.position'''
-
-    def getDo(self, deltaTime, this = None):
-        if this:
-            pass
-
-        else:
-            if self.doGravity:
-                self.gravitate(self.GRAVITY * deltaTime)
-
-            if self.doJump:
-                self.jumpUp(self.JUMP_SPEED * deltaTime)
-                self.doJump = False
-
-        return velocity.x, velocity.y
-
-    def gravitate(self, gravity):
-        self.velocity.y -= gravity
-
-    def jumpUp(self, jumpSpeed):
-        self.velocity.y += jumpSpeed
-
-    def checkBelow(self, ):
-        pass
+    def update(self):
+        self.moveBy((self.doX, self.doY))
+        self.cshape.center = self.position
 
 
 class Data(OurSprite):
@@ -149,8 +123,10 @@ class PlayerCollider(cocos.tiles.RectMapCollider):
        self.player = player
 
    def collide_bottom(self, doY):
-       if self.player.velocity.y:
-           print("landed")
+       if self.player.doY:
+           self.player.doY = doY
+           self.player.update()
+           self.player.doY = 0
 
    def collide_left(self, doX):
        print("stop walking")
@@ -159,7 +135,7 @@ class PlayerCollider(cocos.tiles.RectMapCollider):
        print("stop walking")
 
    def collide_top(self, doY):
-       if self.player.velocity.y:
+       if self.player.doY:
            print("ouch")
 
 
@@ -170,9 +146,11 @@ def main():
     # ONLY FOR DEV
     director.show_FPS = True
 
-    mapLayer = cocos.tiles.load(data.getPath("map.tmx"))["Tile Layer 1"]
-    mapLayer.set_view(0, 0, mapLayer.px_width, mapLayer.px_height)
+    global ourMapLayer
 
-    ourScene = cocos.scene.Scene(mapLayer, MainGameLayer())
+    ourMapLayer = cocos.tiles.load(data.getPath("map.tmx"))["Tile Layer 1"]
+    ourMapLayer.set_view(0, 0, ourMapLayer.px_width, ourMapLayer.px_height)
+
+    ourScene = cocos.scene.Scene(ourMapLayer, MainGameLayer())
 
     director.run(ourScene)
