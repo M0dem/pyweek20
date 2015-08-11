@@ -8,3 +8,7 @@ README.txt
 
 LICENSE.txt
  * add game license
+
+main.py
+ * remove frame rate label
+ * fix `ourMapLayer` global
