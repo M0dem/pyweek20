@@ -1,4 +1,4 @@
-Data smack
+GAME NAME HERE
 ===============
 
 Entry in PyWeek #20  <http://www.pyweek.org/20/>
@@ -29,15 +29,8 @@ Othewise open a terminal / console and "cd" to the game directory and run:
 
 HOW TO PLAY THE GAME:
 
-update this area..........
-..............................
-..........................
+
 
 
 
 LICENSE:
-
-This game skellington is placed in the Public Domain.
-
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-||||||||||   fix  |||||||||||

@@ -1,0 +1,10 @@
+TODO:
+
+README.txt
+ * add game name
+ * check and update game dependencies
+ * add how to play instructions
+ * add game license file reference
+
+LICENSE.txt
+ * add game license

@@ -29,7 +29,7 @@ class MainGameLayer(cocos.layer.Layer):
         '''self.dat = Data((200, 50))
         self.add(self.dat)'''
 
-        self.ourCollider = PlayerCollider(self.bob)
+        self.mapCollider = PlayerCollider(self.bob)
 
         '''self.collisionManager = collision_model.CollisionManagerBruteForce()'''
 
@@ -57,17 +57,30 @@ class MainGameLayer(cocos.layer.Layer):
 
         if "W" in keyNames:
             if self.bob.doY == 0:
+                # jump!
                 self.bob.doY += self.bob.JUMP_SPEED
                 self.bob.doGravity = True
 
         if "A" in keyNames:
+            # move left
             self.bob.doX -= self.bob.WALK_SPEED * deltaTime
 
         if "D" in keyNames:
+            # move right
             self.bob.doX += self.bob.WALK_SPEED * deltaTime
 
         if "A" not in keyNames and "D" not in keyNames:
-            self.bob.doX = 0
+            # stop moving left-right
+
+            # MAGIC NUMBER ALERT!!!
+            # .5 is just a number chosen when `doX` is moved back to 0.
+            # because multiplying `doX` by any decimal percent (except 0) will
+            # never get it to 0.
+            if self.bob.doX > -.5 and self.bob.doX < .5:
+                self.bob.doX = 0
+
+            else:
+                self.bob.doX *= self.bob.WALK_SMOOTH
 
         ######################################################
 
@@ -77,7 +90,7 @@ class MainGameLayer(cocos.layer.Layer):
         new = last.copy()
         new.x += self.bob.doX
         new.y += self.bob.doY
-        self.ourCollider.collide_map(ourMapLayer, last, new, self.bob.doY, self.bob.doX)
+        self.mapCollider.collide_map(ourMapLayer, last, new, self.bob.doY, self.bob.doX)
 
         self.bob.update()
 
@@ -104,6 +117,7 @@ class Player(OurSprite):
         self.JUMP_SPEED = 7
 
         self.WALK_SPEED = 10
+        self.WALK_SMOOTH = .85
 
     def update(self):
         self.moveBy((self.doX, self.doY))
