@@ -291,8 +291,9 @@ class PlayerMapCollider(cocos.tiles.RectMapCollider):
 
 
 class MainMenu(cocos.menu.Menu):
-    def __init__(self):
+    def __init__(self, sceneManager):
         super(MainMenu, self).__init__()
+        self.sceneManager = sceneManager
 
         l = []
         l.append(cocos.menu.MenuItem("Start Game", self.onStartGame))
@@ -301,13 +302,13 @@ class MainMenu(cocos.menu.Menu):
         self.create_menu(l, cocos.menu.shake(), cocos.menu.shake_back())
 
     def onStartGame(self):
-        print("start game")
+        self.sceneManager.doLevelScene(increment = False)
 
     def onOptions(self):
         pass
 
     def onQuitGame(self):
-        print("quit game")
+        # GOODBYE!!!  :)
         sys.exit()
 
 
@@ -323,5 +324,5 @@ def main():
     levels = [
         scenes.Level(cocos.tiles.load(data.getPath("map.tmx"))["Tile Layer 1"], MainGameLayer(sceneManager))
     ]
-    sceneManager.loadScenes(cocos.scene.Scene(MainMenu()), None, None, levels)
+    sceneManager.loadScenes(cocos.scene.Scene(MainMenu(sceneManager)), None, None, levels)
     sceneManager.run()

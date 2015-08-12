@@ -1,4 +1,6 @@
 
+from cocos.scenes.transitions import *
+
 import cocos
 
 class Level(cocos.scene.Scene):
@@ -17,14 +19,14 @@ class SceneManager():
 
     def run(self):
         if not self.director.scene:
-            self.doMainMenu(run = True)
+            self.doMainMenuScene(run = True)
 
-    def loadScenes(self, mainMenu, loserScene, winnerScene, levels):
-        self.mainMenu = mainMenu
+    def loadScenes(self, mainMenuScene, loserScene, winnerScene, levels):
+        self.mainMenuScene = mainMenuScene
         self.loserScene = loserScene
         self.winnerScene = winnerScene
         self.levels = levels
-        
+
         self.currentLevelIndex = 0
         self.updateCurrentLevelStuff()
 
@@ -32,27 +34,35 @@ class SceneManager():
         self.currentLevel = self.levels[self.currentLevelIndex]
         self.currentLevelScene = cocos.scene.Scene(self.currentLevel.scroller)
 
-    def doMainMenu(self, run = False):
-        self.currentLevel = 0
+    def doMainMenuScene(self, run = False):
+        self.currentLevelIndex = 0
         if run:
-            self.director.run(self.mainMenu)
+            self.director.run(self.mainMenuScene)
 
         else:
-            self.director.replace(cocos.scene.FlipX3DTransition(self.mainMenu, duration = 1))
+            self.director.replace(FlipX3DTransition(self.mainMenuScene, duration = 1))
 
     def doLoserScene(self):
-        self.currentLevel = 0
-        self.director.replace(cocos.scene.FlipX3DTransition(self.loserScene, duration = 1))
+        self.currentLevelIndex = 0
+        self.director.replace(FlipX3DTransition(self.loserScene, duration = 1))
 
     def doWinnerScene(self):
-        self.currentLevel = 0
-        self.director.replace(cocos.scene.FlipX3DTransition(self.winnerScene, duration = 1))
+        self.currentLevelIndex = 0
+        self.director.replace(FlipX3DTransition(self.winnerScene, duration = 1))
 
-    def nextLevel(self):
-        if (self.currentLevelIndex + 2) < len(self.levels):
-            self.currentLevelIndex += 1
-            self.updateCurrentLevelStuff()
-            self.director.replace(cocos.scene.FlipX3DTransition(self.currentLevelScene, duration = 1))
+    def doLevelScene(self, increment = True):
+        if increment:
+            j = 2
+
+        else:
+            j = 1
+
+        if (self.currentLevelIndex + j) <= len(self.levels):
+            if increment:
+                self.currentLevelIndex += 1
+                self.updateCurrentLevelStuff()
+
+            self.director.replace(FlipX3DTransition(self.currentLevelScene, duration = 1))
 
         else:
             # has completed all the levels
