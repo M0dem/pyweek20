@@ -16,6 +16,20 @@ import data
 import scenes
 
 
+def checkMap(sprite, mapCollider, sceneManager, deltaTime = None):
+    last = sprite.get_rect()
+    new = last.copy()
+    new.x += sprite.doX
+    new.y += sprite.doY
+    mapCollider.collide_map(sceneManager.currentLevel.mapLayer, last, new, sprite.doY, sprite.doX)
+
+    if deltaTime:
+        sprite.update(deltaTime)
+
+    else:
+        sprite.update()
+
+
 class MainGameLayer(cocos.layer.ScrollableLayer):
 
     is_event_handler = True
@@ -24,24 +38,30 @@ class MainGameLayer(cocos.layer.ScrollableLayer):
         super(MainGameLayer, self).__init__()
         self.sceneManager = sceneManager
 
+        self.freeze = False
+
         self.keysPressed = set()
 
         self.schedule(self.update)
 
+
         self.player = Player((200, 500))
         self.add(self.player)
+        self.playerMapCollider = PlayerMapCollider(self.player)
 
         self.badputer = Badputer((550, 200), (500, 700))
         self.add(self.badputer)
 
-        self.mapCollider = PlayerMapCollider(self.player)
-
         self.collisionManager = collision_model.CollisionManagerBruteForce()
+
+        self.bullet = None
+        self.bulletStuff = set()
+        self.bulletMapCollider = None
 
     def update(self, deltaTime):
         keyNames = [pyglet.window.key.symbol_string(k) for k in self.keysPressed]
 
-        # re-add in all the sprites to the `collisionManager`
+        '''# re-add in all the sprites to the `collisionManager`
         self.collisionManager.clear()
         for sprite in self.get_children():
             self.collisionManager.add(sprite)
@@ -50,17 +70,37 @@ class MainGameLayer(cocos.layer.ScrollableLayer):
         collisions = self.collisionManager.objs_colliding(self.player)
         if collisions:
             for sprite in self.get_children():
+                pass
+                # check isinstance against `EnemyBullet`
                 if isinstance(sprite, Bullet):
                     if sprite in collisions:
-                        print("BULLET COLLISION!")
+                        print("BULLET COLLISION!")'''
 
         ######################################################
 
         if "W" in keyNames:
-            if self.player.doY == 0:
-                # jump!
-                self.player.doY += self.player.JUMP_SPEED
-                self.player.doGravity = True
+            if self.freeze:
+                # navigate bullet
+                if self.bullet.DIRECTION == "right":
+                    self.bullet.rotation -= 2.5
+
+                elif self.bullet.DIRECTION == "left":
+                    self.bullet.rotation += 2.5
+
+            else:
+                if self.player.doY == 0:
+                    # jump!
+                    self.player.doY += self.player.JUMP_SPEED
+                    self.player.doGravity = True
+
+        if "S" in keyNames:
+            if self.freeze:
+                # navigate bullet
+                if self.bullet.DIRECTION == "right":
+                    self.bullet.rotation += 2.5
+
+                elif self.bullet.DIRECTION == "left":
+                    self.bullet.rotation -= 2.5
 
         if "A" in keyNames:
             # move left
@@ -85,39 +125,71 @@ class MainGameLayer(cocos.layer.ScrollableLayer):
                 self.player.doX *= self.player.WALK_SMOOTH
 
         if "SPACE" in keyNames:
-            # shoot bullet
-            if (time.time() - self.player.lastShot) >= self.player.FIRE_RATE:
-                self.add(Bullet(self.player.position, self.player.direction, self.player.BULLET_OFFSET))
-                self.player.lastShot = time.time()
+            if not self.freeze:
+                # shoot bullet
+                if (time.time() - self.player.lastShot) >= self.player.FIRE_RATE:
+                    self.bullet = Bullet(self.player.position, self.player.direction, self.player.BULLET_OFFSET)
+                    self.bulletMapCollider = BulletMapCollider(self.bullet)
+
+                    self.add(self.bullet)
+                    self.bulletStuff.add(self.bullet)
+
+                    self.freeze = True
+
+                    self.player.lastShot = time.time()
 
         ######################################################
 
-        # update the player
-        self.player.doY -= self.player.GRAVITY_SPEED * deltaTime
+        if not self.freeze:
+            # update the player
+            self.player.doY -= self.player.GRAVITY_SPEED * deltaTime
 
-        # check for player-platform collisions
-        last = self.player.get_rect()
-        new = last.copy()
-        new.x += self.player.doX
-        new.y += self.player.doY
-        self.mapCollider.collide_map(self.sceneManager.currentLevel.mapLayer, last, new, self.player.doY, self.player.doX)
+            checkMap(self.player, self.playerMapCollider, self.sceneManager)
 
-        self.player.update()
+            # update all the `Bullet` instances
+            '''for sprite in self.get_children():
+                if isinstance(sprite, Bullet):
+                    if sprite.killMe:
+                        self.remove(sprite)
 
-        # update all the `Bullet` instances
-        for sprite in self.get_children():
-            if isinstance(sprite, Bullet):
-                if sprite.killMe:
-                    self.remove(sprite)
+                    else:
+                        sprite.update(deltaTime)'''
 
-                else:
-                    sprite.update()
+            # update the enemy `Badputer` instances
+            self.badputer.update(deltaTime)
 
-        # update the enemy `Badputer` instances
-        self.badputer.update(deltaTime)
+            # make the "camera" follow the player
+            self.sceneManager.currentLevel.scroller.set_focus(self.player.position[0], self.player.position[1])
 
-        # make the "camera" follow the player
-        self.sceneManager.currentLevel.scroller.set_focus(self.player.position[0], self.player.position[1])
+        else:
+            if self.bullet.killMe:
+                bulletPosition = self.bullet.position
+                self.remove(self.bullet)
+                for sprite in self.get_children():
+                    if isinstance(sprite, BulletTrail):
+                        self.remove(sprite)
+
+                self.add(Explosion(bulletPosition))
+
+                self.bullet = None
+                self.bulletStuff = set()
+                self.bulletMapCollider = None
+
+                self.freeze = False
+
+            else:
+                # `48` is the BulletTrail sprite width
+                #                    MAGIC NUMBER ALERT!!!                       \/
+                if abs(self.bullet.distanceTraveled - self.bullet.lastBulletTrail) >= 48:
+                    bulletTrail = BulletTrail(self.bullet.position, self.bullet.rotation)
+                    self.add(bulletTrail)
+                    self.bulletStuff.add(bulletTrail)
+                    self.bullet.lastBulletTrail = self.bullet.distanceTraveled
+
+                checkMap(self.bullet, self.bulletMapCollider, self.sceneManager, deltaTime = deltaTime)
+
+                # make the "camera" follow the player's bullet
+                self.sceneManager.currentLevel.scroller.set_focus(self.bullet.position[0], self.bullet.position[1])
 
     def on_key_press(self, key, modifiers):
         self.keysPressed.add(key)
@@ -220,37 +292,53 @@ class Bullet(OurSprite):
 
         self.doX = 0
         self.doY = 0
-
-        self.SPEED = 200
-        self.LIFETIME = 3
+        self.rotation = 0
+        self.distanceTraveled = 0
+        self.lastBulletTrail = 0
 
         if self.DIRECTION == "left":
-            self.doX = -self.OFFSET[0]
-            self.doY = self.OFFSET[1]
-            self.update()
-
-            self.doX = -self.SPEED * config.DELTA_TIME
-            self.doY = 0
+            self.SPEED = -200
 
         elif self.DIRECTION == "right":
-            self.doX = self.OFFSET[0]
-            self.doY = self.OFFSET[1]
-            self.update()
+            self.SPEED = 200
 
-            self.doX = self.SPEED * config.DELTA_TIME
-            self.doY = 0
+        else:
+            self.SPEED = 0
+            print("DIRECTION is messed up!!!")
 
-    def update(self):
+        self.LIFETIME = 3
+
+    def update(self, deltaTime):
         if (time.time() - self.spawnTime) >= self.LIFETIME:
             self.killMe = True
 
         else:
-            self.moveBy((self.doX, self.doY))
+            self.distanceTraveled += self.SPEED * deltaTime
+            self.doX, self.doY = self.moveForward(self.SPEED * deltaTime, doReturn = True)
             self.cshape.center = self.position
 
 
+class EnemyBullet(Bullet):
+    pass
+
+
+class BulletTrail(OurSprite):
+    def __init__(self, position, rotation, image = pyglet.image.load(data.getPath("bullet_trail.png"))):
+        super(BulletTrail, self).__init__(image)
+        self.position = position
+        self.rotation = rotation
+
+        self.cshape = collision_model.AARectShape(self.position, self.width // 2, self.height // 2)
+
+
+class Explosion(OurSprite):
+    def __init__(self, position, image = pyglet.image.load_animation(data.getPath("explosion.gif"))):
+        super(Explosion, self).__init__(image)
+        self.position = position
+
+
 class Thruster(OurSprite):
-    def __init__(self, offset, image = pyglet.image.load(data.getPath("flames.gif"))):
+    def __init__(self, offset, image = pyglet.image.load_animation(data.getPath("flames.gif"))):
         super(Thruster, self).__init__(image)
         self._image = image
 
@@ -263,31 +351,47 @@ class Thruster(OurSprite):
         self.opacity = 255
 
 
-class PlayerMapCollider(cocos.tiles.RectMapCollider):
-    def __init__(self, player):
-        self.player = player
+class SpriteMapCollider(cocos.tiles.RectMapCollider):
+    def __init__(self, sprite):
+        self.sprite = sprite
 
+
+class PlayerMapCollider(SpriteMapCollider):
     def collide_bottom(self, doY):
-        if self.player.doY:
-            self.player.doY = doY
-            self.player.update()
-            self.player.doY = 0
+        if self.sprite.doY:
+            self.sprite.doY = doY
+            self.sprite.update()
+            self.sprite.doY = 0
 
     def collide_left(self, doX):
-        self.player.doX = doX
-        self.player.update()
-        self.player.doX = 0
+        self.sprite.doX = doX
+        self.sprite.update()
+        self.sprite.doX = 0
 
     def collide_right(self, doX):
-        self.player.doX = doX
-        self.player.update()
-        self.player.doX = 0
+        self.sprite.doX = doX
+        self.sprite.update()
+        self.sprite.doX = 0
 
     def collide_top(self, doY):
-        if self.player.doY:
-            self.player.doY = doY
-            self.player.update()
-            self.player.doY = 0
+        if self.sprite.doY:
+            self.sprite.doY = doY
+            self.sprite.update()
+            self.sprite.doY = 0
+
+
+class BulletMapCollider(SpriteMapCollider):
+    def collide_bottom(self, doY):
+        self.sprite.killMe = True
+
+    def collide_left(self, doX):
+        self.sprite.killMe = True
+
+    def collide_right(self, doX):
+        self.sprite.killMe = True
+
+    def collide_top(self, doY):
+        self.sprite.killMe = True
 
 
 class MainMenu(cocos.menu.Menu):

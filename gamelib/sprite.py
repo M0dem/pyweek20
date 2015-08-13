@@ -1,5 +1,6 @@
 
 import cocos
+import math
 
 class OurSprite(cocos.sprite.Sprite):
     def moveTo(self, position):
@@ -10,13 +11,16 @@ class OurSprite(cocos.sprite.Sprite):
         self.position = map(sum, zip(self.position, adjustment))
 
     # move along the local X axis
-    def moveForward(self, doForward, rotation = None):
+    def moveForward(self, doForward, rotation = None, doReturn = False):
         if rotation == None:
             rotation = self.rotation
 
         doX = doForward * math.cos(math.radians(rotation))
         doY = doForward * -math.sin(math.radians(rotation))
         self.moveBy((doX, doY))
+
+        if doReturn:
+            return doX, doY
 
     # move along the local Y axis
     def moveUpward(self, doUpward):
