@@ -16,12 +16,12 @@ import data
 import scenes
 
 
-def checkMap(sprite, mapCollider, sceneManager, deltaTime = None):
+def checkMap(sprite, mapCollider, map, deltaTime = None):
     last = sprite.get_rect()
     new = last.copy()
     new.x += sprite.doX
     new.y += sprite.doY
-    mapCollider.collide_map(sceneManager.currentLevel.mapLayer, last, new, sprite.doY, sprite.doX)
+    mapCollider.collide_map(map, last, new, sprite.doY, sprite.doX)
 
     if deltaTime:
         sprite.update(deltaTime)
@@ -56,6 +56,7 @@ class MainGameLayer(cocos.layer.ScrollableLayer):
 
         self.bullet = None
         self.bulletStuff = set()
+        self.bulletMap = cocos.tiles.load(data.getPath("bullet_map.tmx"))["Tile Layer 1"]
         self.bulletMapCollider = None
 
     def update(self, deltaTime):
@@ -144,7 +145,7 @@ class MainGameLayer(cocos.layer.ScrollableLayer):
             # update the player
             self.player.doY -= self.player.GRAVITY_SPEED * deltaTime
 
-            checkMap(self.player, self.playerMapCollider, self.sceneManager)
+            checkMap(self.player, self.playerMapCollider, self.sceneManager.currentLevel.mapLayer)
 
             # update all the `Bullet` instances
             '''for sprite in self.get_children():
@@ -186,7 +187,7 @@ class MainGameLayer(cocos.layer.ScrollableLayer):
                     self.bulletStuff.add(bulletTrail)
                     self.bullet.lastBulletTrail = self.bullet.distanceTraveled
 
-                checkMap(self.bullet, self.bulletMapCollider, self.sceneManager, deltaTime = deltaTime)
+                checkMap(self.bullet, self.bulletMapCollider, self.bulletMap, deltaTime = deltaTime)
 
                 # make the "camera" follow the player's bullet
                 self.sceneManager.currentLevel.scroller.set_focus(self.bullet.position[0], self.bullet.position[1])
