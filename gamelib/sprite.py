@@ -2,6 +2,7 @@
 import cocos
 import math
 
+
 class OurSprite(cocos.sprite.Sprite):
     def moveTo(self, position):
         self.position = position

@@ -5,6 +5,7 @@ from cocos.director import director
 
 import cocos
 import copy
+import math
 import pyglet
 import random
 import sys
@@ -32,6 +33,12 @@ def checkMap(sprite, mapCollider, map, deltaTime = None):
         sprite.update()
 
 
+def angleFromPoints(positionA, positionB):
+    deltaY = positionB[1] - positionA[1]
+    deltaX = positionB[0] - positionA[0]
+    return math.atan2(deltaY, deltaX) * 180 / math.pi
+
+
 class MainGameLayer(cocos.layer.ScrollableLayer):
 
     is_event_handler = True
@@ -51,10 +58,13 @@ class MainGameLayer(cocos.layer.ScrollableLayer):
         self.add(self.player)
         self.playerMapCollider = PlayerMapCollider(self.player)
 
-        self.badputer = Badputer((550, 200), (500, 700))
+        self.badputer = Badputer((550, 200), self.player, (500, 700))
         self.add(self.badputer)
         self.enemies = set()
         self.enemies.add(self.badputer)
+        self.enemyBullet = EnemyBullet(self.badputer.position, self.badputer.direction, -16)
+        self.add(self.enemyBullet)
+        self.badputer.bullets.add(self.enemyBullet)
 
         self.collisionManager = collision_model.CollisionManagerBruteForce()
 
@@ -95,16 +105,18 @@ class MainGameLayer(cocos.layer.ScrollableLayer):
                     self.bullet.rotation -= 2.5
 
         if "A" in keyNames:
-            # move left
-            self.player.doX -= self.player.WALK_SPEED * deltaTime
+            if not self.freeze:
+                # move left
+                self.player.doX -= self.player.WALK_SPEED * deltaTime
 
-            self.player.direction = "left"
+                self.player.direction = "left"
 
         if "D" in keyNames:
-            # move right
-            self.player.doX += self.player.WALK_SPEED * deltaTime
+            if not self.freeze:
+                # move right
+                self.player.doX += self.player.WALK_SPEED * deltaTime
 
-            self.player.direction = "right"
+                self.player.direction = "right"
 
         if "A" not in keyNames and "D" not in keyNames:
             # stop moving left-right
@@ -193,12 +205,22 @@ class MainGameLayer(cocos.layer.ScrollableLayer):
                 # make the "camera" follow the player's bullet
                 self.sceneManager.currentLevel.scroller.set_focus(self.bullet.position[0], self.bullet.position[1])
 
-        # look through enemies and remove them if they are dead
+        # look through all the enemies and remove them if they are dead
         enemiesTemp = self.enemies.copy()
         for sprite in enemiesTemp:
             if sprite.killMe:
                 self.remove(sprite)
                 self.enemies.remove(sprite)
+                enemyBulletsTemp = sprite.bullets.copy()
+                for bullet in enemyBulletsTemp:
+                    self.remove(bullet)
+                    sprite.bullets.remove(bullet)
+
+            enemyBulletsTemp = sprite.bullets.copy()
+            for bullet in enemyBulletsTemp:
+                if bullet.killMe:
+                    self.remove(bullet)
+                    sprite.bullets.remove(bullet)
 
         tempAnimationsTemp = self.tempAnimations.copy()
         for sprite in tempAnimationsTemp:
@@ -272,24 +294,31 @@ class Player(OurSprite):
 
 
 class Badputer(OurSprite):
-    def __init__(self, position, patrolX, image = pyglet.image.load(data.getPath("badputer.png"))):
+    def __init__(self, position, target, patrolX, image = pyglet.image.load(data.getPath("badputer.png"))):
         super(Badputer, self).__init__(image)
         self.position = position
+        self.target = target
+        self.PATROL_X = patrolX
 
         self.cshape = collision_model.AARectShape(self.position, self.width // 2, self.height // 2)
 
         self.SPEED = 50
-        self.PATROL_X = patrolX
 
         self.direction = "left"
         self.doX = -self.SPEED * config.DELTA_TIME
         self.doY = 0
         self.health = 10
         self.killMe = False
+        self.bullets = set()
 
     def update(self, deltaTime):
         if self.health <= 0:
             self.killMe = True
+
+        for bullet in self.bullets:
+            # update the bullets to follow the player
+            bullet.rotation = -angleFromPoints(bullet.position, self.target.position)
+            bullet.update(deltaTime)
 
         # change direction
         if self.direction == "left" and self.position[0] < self.PATROL_X[0]:
@@ -326,15 +355,7 @@ class Bullet(OurSprite):
         self.distanceTraveled = 0
         self.lastBulletTrail = 0
 
-        if self.DIRECTION == "left":
-            self.SPEED = -200
-
-        elif self.DIRECTION == "right":
-            self.SPEED = 200
-
-        else:
-            self.SPEED = 0
-            print("DIRECTION is messed up!!!")
+        self.getSpeed()
 
         self.LIFETIME = 3
 
@@ -347,9 +368,33 @@ class Bullet(OurSprite):
             self.doX, self.doY = self.moveForward(self.SPEED * deltaTime, doReturn = True)
             self.cshape.center = self.position
 
+    def getSpeed(self):
+        if self.DIRECTION == "left":
+            self.SPEED = -200
+
+        elif self.DIRECTION == "right":
+            self.SPEED = 200
+
+        else:
+            self.SPEED = 0
+            print("DIRECTION is messed up!!!")
+
 
 class EnemyBullet(Bullet):
-    pass
+    def update(self, deltaTime):
+        self.doX, self.doY = self.moveForward(self.SPEED * deltaTime, doReturn = True)
+        self.cshape.center = self.position
+
+    def getSpeed(self):
+        if self.DIRECTION == "left":
+            self.SPEED = 200
+
+        elif self.DIRECTION == "right":
+            self.SPEED = -200
+
+        else:
+            self.SPEED = 0
+            print("DIRECTION is messed up!!!")
 
 
 class BulletTrail(OurSprite):
