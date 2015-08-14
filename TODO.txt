@@ -12,3 +12,4 @@ LICENSE.txt
 main.py
  * remove frame rate label
  * fix `ourMapLayer` global
+ * add damage to the player when BulletTrail is collided with player or bullet

@@ -182,6 +182,19 @@ class MainGameLayer(cocos.layer.ScrollableLayer):
                 # `48` is the BulletTrail sprite width
                 #                    MAGIC NUMBER ALERT!!!                       \/
                 if abs(self.bullet.distanceTraveled - self.bullet.lastBulletTrail) >= 48:
+                    # check for Bullet collisions with self
+                    self.collisionManager.clear()
+                    for sprite in self.bulletStuff.union(set([self.player])):
+                        self.collisionManager.add(sprite)
+
+                    # handle collisions
+                    collisions = self.collisionManager.objs_colliding(self.bullet)
+                    if collisions:
+                        for sprite in self.bulletStuff.union(set([self.player])):
+                            if sprite in collisions:
+                                self.bullet.killMe = True
+                                # DAMAGE THE PLAYER
+
                     bulletTrail = BulletTrail(self.bullet.position, self.bullet.rotation)
                     self.add(bulletTrail)
                     self.bulletStuff.add(bulletTrail)
