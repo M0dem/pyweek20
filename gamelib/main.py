@@ -4,7 +4,9 @@ from cocos import collision_model
 from cocos.director import director
 
 import cocos
+import copy
 import pyglet
+import random
 import sys
 import time
 
@@ -51,6 +53,8 @@ class MainGameLayer(cocos.layer.ScrollableLayer):
 
         self.badputer = Badputer((550, 200), (500, 700))
         self.add(self.badputer)
+        self.enemies = set()
+        self.enemies.add(self.badputer)
 
         self.collisionManager = collision_model.CollisionManagerBruteForce()
 
@@ -59,23 +63,10 @@ class MainGameLayer(cocos.layer.ScrollableLayer):
         self.bulletMap = cocos.tiles.load(data.getPath("bullet_map.tmx"))["Tile Layer 1"]
         self.bulletMapCollider = None
 
+        self.tempAnimations = set()
+
     def update(self, deltaTime):
         keyNames = [pyglet.window.key.symbol_string(k) for k in self.keysPressed]
-
-        '''# re-add in all the sprites to the `collisionManager`
-        self.collisionManager.clear()
-        for sprite in self.get_children():
-            self.collisionManager.add(sprite)
-
-        # handle collisions
-        collisions = self.collisionManager.objs_colliding(self.player)
-        if collisions:
-            for sprite in self.get_children():
-                pass
-                # check isinstance against `EnemyBullet`
-                if isinstance(sprite, Bullet):
-                    if sprite in collisions:
-                        print("BULLET COLLISION!")'''
 
         ######################################################
 
@@ -147,15 +138,6 @@ class MainGameLayer(cocos.layer.ScrollableLayer):
 
             checkMap(self.player, self.playerMapCollider, self.sceneManager.currentLevel.mapLayer)
 
-            # update all the `Bullet` instances
-            '''for sprite in self.get_children():
-                if isinstance(sprite, Bullet):
-                    if sprite.killMe:
-                        self.remove(sprite)
-
-                    else:
-                        sprite.update(deltaTime)'''
-
             # update the enemy `Badputer` instances
             self.badputer.update(deltaTime)
 
@@ -170,7 +152,9 @@ class MainGameLayer(cocos.layer.ScrollableLayer):
                     if isinstance(sprite, BulletTrail):
                         self.remove(sprite)
 
-                self.add(Explosion(bulletPosition))
+                explosion = Explosion(bulletPosition)
+                self.add(explosion)
+                self.tempAnimations.add(explosion)
 
                 self.bullet = None
                 self.bulletStuff = set()
@@ -180,20 +164,24 @@ class MainGameLayer(cocos.layer.ScrollableLayer):
 
             else:
                 # `48` is the BulletTrail sprite width
-                #                    MAGIC NUMBER ALERT!!!                       \/
+                #                    MAGIC NUMBER ALERT!!!                            \/
                 if abs(self.bullet.distanceTraveled - self.bullet.lastBulletTrail) >= 48:
                     # check for Bullet collisions with self
                     self.collisionManager.clear()
-                    for sprite in self.bulletStuff.union(set([self.player])):
+                    for sprite in self.bulletStuff.union(set([self.player]).union(self.enemies)):
                         self.collisionManager.add(sprite)
 
                     # handle collisions
                     collisions = self.collisionManager.objs_colliding(self.bullet)
                     if collisions:
-                        for sprite in self.bulletStuff.union(set([self.player])):
+                        self.bullet.killMe = True
+                        for sprite in self.bulletStuff:
                             if sprite in collisions:
-                                self.bullet.killMe = True
-                                # DAMAGE THE PLAYER
+                                self.player.doDamage((float(random.randint(25, 75)) / 100))
+
+                        for sprite in self.enemies:
+                            if sprite in collisions:
+                                sprite.doDamage((float(random.randint(25, 75)) / 100))
 
                     bulletTrail = BulletTrail(self.bullet.position, self.bullet.rotation)
                     self.add(bulletTrail)
@@ -204,6 +192,19 @@ class MainGameLayer(cocos.layer.ScrollableLayer):
 
                 # make the "camera" follow the player's bullet
                 self.sceneManager.currentLevel.scroller.set_focus(self.bullet.position[0], self.bullet.position[1])
+
+        # look through enemies and remove them if they are dead
+        enemiesTemp = self.enemies.copy()
+        for sprite in enemiesTemp:
+            if sprite.killMe:
+                self.remove(sprite)
+                self.enemies.remove(sprite)
+
+        tempAnimationsTemp = self.tempAnimations.copy()
+        for sprite in tempAnimationsTemp:
+            if (time.time() - sprite.startTime) >= sprite.DURATION:
+                self.remove(sprite)
+                self.tempAnimations.remove(sprite)
 
     def on_key_press(self, key, modifiers):
         self.keysPressed.add(key)
@@ -222,6 +223,7 @@ class Player(OurSprite):
 
         self.doX = 0
         self.doY = 0
+        self.health = 10
 
         self.doGravity = True
         self.GRAVITY_SPEED = 10
@@ -241,6 +243,10 @@ class Player(OurSprite):
         self.add(self.thruster)
 
     def update(self):
+        if self.health <= 0:
+            pass
+            # go to loserScene in sceneManager
+
         if self.lastDirection != self.direction:
             if self.direction == "left":
                 self.image = self.imageSeq[0]
@@ -260,6 +266,10 @@ class Player(OurSprite):
         else:
             self.thruster.disable()
 
+    def doDamage(self, damage):
+        self.health -= damage * 10
+        # do damage animation
+
 
 class Badputer(OurSprite):
     def __init__(self, position, patrolX, image = pyglet.image.load(data.getPath("badputer.png"))):
@@ -274,8 +284,13 @@ class Badputer(OurSprite):
         self.direction = "left"
         self.doX = -self.SPEED * config.DELTA_TIME
         self.doY = 0
+        self.health = 10
+        self.killMe = False
 
     def update(self, deltaTime):
+        if self.health <= 0:
+            self.killMe = True
+
         # change direction
         if self.direction == "left" and self.position[0] < self.PATROL_X[0]:
             self.direction = "right"
@@ -288,8 +303,9 @@ class Badputer(OurSprite):
         self.moveBy((self.doX, self.doY))
         self.cshape.center = self.position
 
-    def die(self):
-        pass
+    def doDamage(self, damage):
+        self.health -= damage * 10
+        # do damage animation
 
 
 class Bullet(OurSprite):
@@ -349,6 +365,9 @@ class Explosion(OurSprite):
     def __init__(self, position, image = pyglet.image.load_animation(data.getPath("explosion.gif"))):
         super(Explosion, self).__init__(image)
         self.position = position
+
+        self.startTime = time.time()
+        self.DURATION = 1
 
 
 class Thruster(OurSprite):
@@ -428,7 +447,6 @@ class MainMenu(cocos.menu.Menu):
     def onQuitGame(self):
         # GOODBYE!!!  :)
         sys.exit()
-
 
 
 def main():
