@@ -3,14 +3,16 @@ from cocos.scenes.transitions import *
 
 import cocos
 
-class Level(cocos.scene.Scene):
-    def __init__(self, mapLayer, mainGameLayer):
+class Level():
+    def __init__(self, mapLayer, mainGameLayer, playerHealthLayer):
         self.mapLayer = mapLayer
         self.mainGameLayer = mainGameLayer
+        self.playerHealthLayer = playerHealthLayer
 
         self.scroller = cocos.layer.ScrollingManager()
         self.scroller.add(self.mapLayer)
         self.scroller.add(self.mainGameLayer)
+
 
 
 class SceneManager():
@@ -32,7 +34,7 @@ class SceneManager():
 
     def updateCurrentLevelStuff(self):
         self.currentLevel = self.levels[self.currentLevelIndex]
-        self.currentLevelScene = cocos.scene.Scene(self.currentLevel.scroller)
+        self.currentLevelScene = cocos.scene.Scene(self.currentLevel.scroller, self.currentLevel.playerHealthLayer)
 
     def doMainMenuScene(self, run = False):
         self.currentLevelIndex = 0

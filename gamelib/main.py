@@ -144,7 +144,7 @@ class MainGameLayer(cocos.layer.ScrollableLayer):
                     self.bulletMapCollider = BulletMapCollider(self.bullet)
 
                     self.add(self.bullet)
-                    self.bulletStuff.add(self.bullet)
+                    # self.bulletStuff.add(self.bullet)
 
                     self.freeze = True
 
@@ -179,6 +179,9 @@ class MainGameLayer(cocos.layer.ScrollableLayer):
 
         else:
             if self.bullet.killMe:
+                if self.bullet.damagePlayer:
+                    self.player.doDamage(random.randint(25, 75))
+
                 bulletPosition = self.bullet.position
                 self.remove(self.bullet)
                 for sprite in self.get_children():
@@ -201,7 +204,7 @@ class MainGameLayer(cocos.layer.ScrollableLayer):
                 if abs(self.bullet.distanceTraveled - self.bullet.lastBulletTrail) >= 48:
                     # check for Bullet collisions with self
                     self.collisionManager.clear()
-                    for sprite in self.bulletStuff.union(set([self.player]).union(self.enemies)):
+                    for sprite in self.bulletStuff.union(set([self.player])).union(self.enemies):
                         self.collisionManager.add(sprite)
 
                     # handle collisions
@@ -227,8 +230,11 @@ class MainGameLayer(cocos.layer.ScrollableLayer):
                 # make the "camera" follow the player's bullet
                 self.sceneManager.currentLevel.scroller.set_focus(self.bullet.position[0], self.bullet.position[1])
 
-        if self.player.killMe:
+
+        ####################    IT IS SCENES TWICE HERE!!!!  #################
+        if self.player.killMe and not self.dead:
             self.playerKilled()
+            self.dead = True
 
         # look through all the enemies and remove them if they are dead
         enemiesTemp = self.enemies.copy()
@@ -255,7 +261,9 @@ class MainGameLayer(cocos.layer.ScrollableLayer):
                 self.dead = True
                 self.playerKilled()
 
-        print(self.player.health)
+        # update the player health label
+        playerHealthLayer = self.sceneManager.currentLevel.playerHealthLayer
+        super(playerHealthLayer.__class__, playerHealthLayer).__init__(text = str(+self.player.health), position = playerHealthLayer.position, font_size = 24, anchor_x = "center", anchor_y = "center")
 
     def playerKilled(self):
         self.sceneManager.doLoserScene()
@@ -299,6 +307,7 @@ class Player(OurSprite):
 
     def update(self):
         if self.health <= 0:
+            self.health = 0
             self.killMe = True
 
         if self.lastDirection != self.direction:
@@ -386,6 +395,7 @@ class Bullet(OurSprite):
         self.rotation = 0
         self.distanceTraveled = 0
         self.lastBulletTrail = 0
+        self.damagePlayer = False
 
         self.getSpeed()
 
@@ -493,15 +503,19 @@ class PlayerMapCollider(SpriteMapCollider):
 class BulletMapCollider(SpriteMapCollider):
     def collide_bottom(self, doY):
         self.sprite.killMe = True
+        self.sprite.damagePlayer = True
 
     def collide_left(self, doX):
         self.sprite.killMe = True
+        self.sprite.damagePlayer = True
 
     def collide_right(self, doX):
         self.sprite.killMe = True
+        self.sprite.damagePlayer = True
 
     def collide_top(self, doY):
         self.sprite.killMe = True
+        self.sprite.damagePlayer = True
 
 
 class MainMenu(cocos.menu.Menu):
@@ -531,11 +545,12 @@ def main():
     director.init(width = config.SCREEN_WIDTH, height = config.SCREEN_HEIGHT, resizable = False, caption = "Platformy.py")
 
     # ONLY FOR DEV
-    director.show_FPS = True
+    # director.show_FPS = True
 
     sceneManager = scenes.SceneManager(director)
+    # don't change the order of `otherLayers` or something will break (like the player health text label)
     levels = [
-        scenes.Level(cocos.tiles.load(data.getPath("map.tmx"))["Tile Layer 1"], MainGameLayer(sceneManager))
+        scenes.Level(cocos.tiles.load(data.getPath("map.tmx"))["Tile Layer 1"], MainGameLayer(sceneManager), cocos.text.Label(text = "HEALTH", position = (config.SCREEN_WIDTH // 12, config.SCREEN_HEIGHT // 12)))
     ]
-    sceneManager.loadScenes(cocos.scene.Scene(MainMenu(sceneManager)), cocos.scene.Scene(cocos.text.Label(text = "LOSER!!!", position = (config.SCREEN_WIDTH // 2, config.SCREEN_HEIGHT // 2), font_size = 32, anchor_x = "center", anchor_y = "center")), None, levels)
+    sceneManager.loadScenes(cocos.scene.Scene(MainMenu(sceneManager)), cocos.scene.Scene(cocos.text.Label(text = "You lost this level!!!", position = (config.SCREEN_WIDTH // 2, config.SCREEN_HEIGHT // 2), font_size = 32, anchor_x = "center", anchor_y = "center")), None, levels)
     sceneManager.run()
