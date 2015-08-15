@@ -57,14 +57,20 @@ class MainGameLayer(cocos.layer.ScrollableLayer):
         self.player = Player((200, 500))
         self.add(self.player)
         self.playerMapCollider = PlayerMapCollider(self.player)
+        self.playerBullets = set()
 
         self.badputer = Badputer((550, 200), self.player, (500, 700))
         self.add(self.badputer)
         self.enemies = set()
         self.enemies.add(self.badputer)
+        self.enemyBullets = set()
+
+        # TEMP CODE, NEEDS TO HANDLE LOTS OF BADPUTERS
         self.enemyBullet = EnemyBullet(self.badputer.position, self.badputer.direction, -16)
         self.add(self.enemyBullet)
         self.badputer.bullets.add(self.enemyBullet)
+        self.enemyBullets.add(self.enemyBullet)
+
 
         self.collisionManager = collision_model.CollisionManagerBruteForce()
 
@@ -74,6 +80,8 @@ class MainGameLayer(cocos.layer.ScrollableLayer):
         self.bulletMapCollider = None
 
         self.tempAnimations = set()
+
+        self.dead = False
 
     def update(self, deltaTime):
         keyNames = [pyglet.window.key.symbol_string(k) for k in self.keysPressed]
@@ -156,6 +164,19 @@ class MainGameLayer(cocos.layer.ScrollableLayer):
             # make the "camera" follow the player
             self.sceneManager.currentLevel.scroller.set_focus(self.player.position[0], self.player.position[1])
 
+            for enemyBullet in self.enemyBullets:
+                # check for EnemyBullet collisions with the player and their Bullets
+                self.collisionManager.clear()
+                for sprite in self.playerBullets.union(set([self.player])):
+                    self.collisionManager.add(sprite)
+
+                # handle collisions
+                collisions = self.collisionManager.objs_colliding(enemyBullet)
+                if collisions:
+                    enemyBullet.killMe = True
+                    if self.player in collisions:
+                        self.player.doDamage(random.randint(25, 75))
+
         else:
             if self.bullet.killMe:
                 bulletPosition = self.bullet.position
@@ -189,15 +210,16 @@ class MainGameLayer(cocos.layer.ScrollableLayer):
                         self.bullet.killMe = True
                         for sprite in self.bulletStuff:
                             if sprite in collisions:
-                                self.player.doDamage((float(random.randint(25, 75)) / 100))
+                                self.player.doDamage(random.randint(25, 75))
 
                         for sprite in self.enemies:
                             if sprite in collisions:
-                                sprite.doDamage((float(random.randint(25, 75)) / 100))
+                                sprite.doDamage(random.randint(25, 75))
 
                     bulletTrail = BulletTrail(self.bullet.position, self.bullet.rotation)
                     self.add(bulletTrail)
                     self.bulletStuff.add(bulletTrail)
+                    self.playerBullets.add(bulletTrail)
                     self.bullet.lastBulletTrail = self.bullet.distanceTraveled
 
                 checkMap(self.bullet, self.bulletMapCollider, self.bulletMap, deltaTime = deltaTime)
@@ -205,28 +227,38 @@ class MainGameLayer(cocos.layer.ScrollableLayer):
                 # make the "camera" follow the player's bullet
                 self.sceneManager.currentLevel.scroller.set_focus(self.bullet.position[0], self.bullet.position[1])
 
+        if self.player.killMe:
+            self.playerKilled()
+
         # look through all the enemies and remove them if they are dead
         enemiesTemp = self.enemies.copy()
         for sprite in enemiesTemp:
             if sprite.killMe:
                 self.remove(sprite)
                 self.enemies.remove(sprite)
-                enemyBulletsTemp = sprite.bullets.copy()
-                for bullet in enemyBulletsTemp:
-                    self.remove(bullet)
-                    sprite.bullets.remove(bullet)
 
-            enemyBulletsTemp = sprite.bullets.copy()
-            for bullet in enemyBulletsTemp:
-                if bullet.killMe:
-                    self.remove(bullet)
-                    sprite.bullets.remove(bullet)
+        enemyBulletsTemp = self.enemyBullets.copy()
+        for sprite in enemyBulletsTemp:
+            if sprite.killMe:
+                self.remove(sprite)
+                self.enemyBullets.remove(sprite)
 
         tempAnimationsTemp = self.tempAnimations.copy()
         for sprite in tempAnimationsTemp:
             if (time.time() - sprite.startTime) >= sprite.DURATION:
                 self.remove(sprite)
                 self.tempAnimations.remove(sprite)
+
+        # if the player is lower than like |x: 0|, it is dead!
+        if not self.dead:
+            if self.player.position[1] < 0:
+                self.dead = True
+                self.playerKilled()
+
+        print(self.player.health)
+
+    def playerKilled(self):
+        self.sceneManager.doLoserScene()
 
     def on_key_press(self, key, modifiers):
         self.keysPressed.add(key)
@@ -245,7 +277,8 @@ class Player(OurSprite):
 
         self.doX = 0
         self.doY = 0
-        self.health = 10
+        self.health = 100
+        self.killMe = False
 
         self.doGravity = True
         self.GRAVITY_SPEED = 10
@@ -266,8 +299,7 @@ class Player(OurSprite):
 
     def update(self):
         if self.health <= 0:
-            pass
-            # go to loserScene in sceneManager
+            self.killMe = True
 
         if self.lastDirection != self.direction:
             if self.direction == "left":
@@ -289,7 +321,7 @@ class Player(OurSprite):
             self.thruster.disable()
 
     def doDamage(self, damage):
-        self.health -= damage * 10
+        self.health -= damage
         # do damage animation
 
 
@@ -307,7 +339,7 @@ class Badputer(OurSprite):
         self.direction = "left"
         self.doX = -self.SPEED * config.DELTA_TIME
         self.doY = 0
-        self.health = 10
+        self.health = 100
         self.killMe = False
         self.bullets = set()
 
@@ -333,7 +365,7 @@ class Badputer(OurSprite):
         self.cshape.center = self.position
 
     def doDamage(self, damage):
-        self.health -= damage * 10
+        self.health -= damage
         # do damage animation
 
 
@@ -505,5 +537,5 @@ def main():
     levels = [
         scenes.Level(cocos.tiles.load(data.getPath("map.tmx"))["Tile Layer 1"], MainGameLayer(sceneManager))
     ]
-    sceneManager.loadScenes(cocos.scene.Scene(MainMenu(sceneManager)), None, None, levels)
+    sceneManager.loadScenes(cocos.scene.Scene(MainMenu(sceneManager)), cocos.scene.Scene(cocos.text.Label(text = "LOSER!!!", position = (config.SCREEN_WIDTH // 2, config.SCREEN_HEIGHT // 2), font_size = 32, anchor_x = "center", anchor_y = "center")), None, levels)
     sceneManager.run()
