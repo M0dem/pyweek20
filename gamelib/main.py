@@ -39,13 +39,27 @@ def angleFromPoints(positionA, positionB):
     return math.atan2(deltaY, deltaX) * 180 / math.pi
 
 
+def getLevels(sceneManager):
+    levels = [
+        scenes.Level(
+            cocos.tiles.load(data.getPath("map.tmx"))["Tile Layer 1"],
+            MainGameLayer(sceneManager, 1),
+            cocos.text.Label(text = "", position = (config.SCREEN_WIDTH // 12, config.SCREEN_HEIGHT // 12)),
+            playerSpawn = (550, 200)
+        )
+    ]
+
+    return levels
+
+
 class MainGameLayer(cocos.layer.ScrollableLayer):
 
     is_event_handler = True
 
-    def __init__(self, sceneManager):
+    def __init__(self, sceneManager, levelDifficulty):
         super(MainGameLayer, self).__init__()
         self.sceneManager = sceneManager
+        self.levelDifficulty = levelDifficulty
 
         self.freeze = False
 
@@ -142,7 +156,7 @@ class MainGameLayer(cocos.layer.ScrollableLayer):
             if not self.freeze:
                 # shoot bullet
                 if (time.time() - self.player.lastShot) >= self.player.FIRE_RATE:
-                    self.bullet = Bullet(self.player.position, self.player.direction, self.player.BULLET_OFFSET)
+                    self.bullet = Bullet(self.player.position, self.player.direction, self.player.BULLET_OFFSET, levelDifficulty = self.levelDifficulty)
                     self.bulletMapCollider = BulletMapCollider(self.bullet)
 
                     self.add(self.bullet)
@@ -162,7 +176,6 @@ class MainGameLayer(cocos.layer.ScrollableLayer):
 
 
 
-            ############# FIX THE BAPUTER SHOOTING UP A BIT #########################
             self.collisionManager.clear()
             for sprite in self.enemies.union(set([self.player])):
                 self.collisionManager.add(sprite)
@@ -178,15 +191,10 @@ class MainGameLayer(cocos.layer.ScrollableLayer):
                         direction = "right"
 
                     if direction == sprite.direction:
-                        enemyBullet = EnemyBullet(sprite.position, sprite.direction, -16)
+                        enemyBullet = EnemyBullet(sprite.position, sprite.direction, -16, levelDifficulty = self.levelDifficulty)
                         self.add(enemyBullet)
                         sprite.bullets.add(enemyBullet)
                         self.enemyBullets.add(enemyBullet)
-                        if sprite.y < self.player.y:
-                            enemyBullet.rotation += 270
-
-                        elif sprite.y > self.player.y:
-                            enemyBullet.rotation += 90
 
                         sprite.lastShot = time.time()
 
@@ -232,7 +240,7 @@ class MainGameLayer(cocos.layer.ScrollableLayer):
                 self.freeze = False
 
             else:
-                # `48` is the BulletTrail sprite width
+                # `32` is the BulletTrail sprite width
                 #                    MAGIC NUMBER ALERT!!!                            \/
                 if abs(self.bullet.distanceTraveled - self.bullet.lastBulletTrail) >= 48:
                     # check for Bullet collisions with self
@@ -313,6 +321,9 @@ class MainGameLayer(cocos.layer.ScrollableLayer):
 
     def playerKilled(self):
         self.sceneManager.doLoserScene()
+
+    def reset(self):
+        self.sceneManager.loadLevels(getLevels(self.sceneManager))
 
     def on_key_press(self, key, modifiers):
         self.keysPressed.add(key)
@@ -398,7 +409,7 @@ class Badputer(OurSprite):
         self.health = 100
         self.killMe = False
         self.bullets = set()
-        self.FIRE_RATE = .25
+        self.FIRE_RATE = 1
         self.lastShot = time.time() - self.FIRE_RATE
 
     def update(self, deltaTime):
@@ -428,7 +439,7 @@ class Badputer(OurSprite):
 
 
 class Bullet(OurSprite):
-    def __init__(self, position, direction, offset, image = pyglet.image.load(data.getPath("bam.png"))):
+    def __init__(self, position, direction, offset, levelDifficulty = 1, image = pyglet.image.load(data.getPath("bam.png"))):
         super(Bullet, self).__init__(image)
         self.position = position
         self.DIRECTION = direction
@@ -445,10 +456,10 @@ class Bullet(OurSprite):
         self.distanceTraveled = 0
         self.lastBulletTrail = 0
         self.damagePlayer = False
-
-        self.getSpeed()
-
+        self.DEFAULT_SPEED = 400
         self.LIFETIME = 3
+
+        self.setSpeed(levelDifficulty)
 
     def update(self, deltaTime):
         if (time.time() - self.spawnTime) >= self.LIFETIME:
@@ -459,12 +470,12 @@ class Bullet(OurSprite):
             self.doX, self.doY = self.moveForward(self.SPEED * deltaTime, doReturn = True)
             self.cshape.center = self.position
 
-    def getSpeed(self):
+    def setSpeed(self, levelDifficulty):
         if self.DIRECTION == "left":
-            self.SPEED = -200
+            self.SPEED = -self.DEFAULT_SPEED * levelDifficulty
 
         elif self.DIRECTION == "right":
-            self.SPEED = 200
+            self.SPEED = self.DEFAULT_SPEED * levelDifficulty
 
         else:
             self.SPEED = 0
@@ -476,20 +487,13 @@ class EnemyBullet(Bullet):
         self.doX, self.doY = self.moveForward(self.SPEED * deltaTime, doReturn = True)
         self.cshape.center = self.position
 
-    def getSpeed(self):
-        if self.DIRECTION == "left":
-            self.SPEED = 200
-
-        elif self.DIRECTION == "right":
-            self.SPEED = -200
-
-        else:
-            self.SPEED = 0
-            print("DIRECTION is messed up!!!")
+    def setSpeed(self, levelDifficulty):
+        self.image = pyglet.image.load(data.getPath("bawm.png"))
+        self.SPEED = self.DEFAULT_SPEED * levelDifficulty
 
 
 class BulletTrail(OurSprite):
-    def __init__(self, position, rotation, image = pyglet.image.load(data.getPath("bullet_trail.png"))):
+    def __init__(self, position, rotation, image = pyglet.image.load(data.getPath("bam.png"))):
         super(BulletTrail, self).__init__(image)
         self.position = position
         self.rotation = rotation
@@ -518,6 +522,12 @@ class Thruster(OurSprite):
 
     def enable(self):
         self.opacity = 255
+
+
+class WinBlock(OurSprite):
+    def __init__(position, image = pyglet.image.load(data.getPath("win_block.png"))):
+        super(WinBlock, self).__init__(image)
+        self.position = position
 
 
 class SpriteMapCollider(cocos.tiles.RectMapCollider):
@@ -585,6 +595,31 @@ class MainMenu(cocos.menu.Menu):
         sys.exit()
 
 
+class TemporaryLabel(cocos.text.Label):
+    def __init__(self, sceneManager, loserScene = False, duration = 3, text = "", position = (config.SCREEN_WIDTH // 2, config.SCREEN_HEIGHT // 2), font_size = 32, anchor_x = "center", anchor_y = "center"):
+        super(TemporaryLabel, self).__init__(text = text, position = position, font_size = font_size, anchor_x = anchor_x, anchor_y = anchor_y)
+        self.sceneManager = sceneManager
+        self.loserScene = loserScene
+        self.duration = duration
+
+        self.age = 0
+        self.dead = False
+
+        self.schedule(self.update)
+
+    def update(self, deltaTime):
+        if not self.dead:
+            self.age += deltaTime
+            if self.age >= self.duration:
+                self.dead = True
+                self.age = 0
+                if self.loserScene:
+                    self.sceneManager.doLevelScene(increment = False, reset = self)
+
+                else:
+                    self.sceneManager.doLevelScene(reset = self)
+
+
 def main():
 
     director.init(width = config.SCREEN_WIDTH, height = config.SCREEN_HEIGHT, resizable = False, caption = "Platformy.py")
@@ -594,8 +629,8 @@ def main():
 
     sceneManager = scenes.SceneManager(director)
     # don't change the order of `otherLayers` or something will break (like the player health text label)
-    levels = [
-        scenes.Level(cocos.tiles.load(data.getPath("map.tmx"))["Tile Layer 1"], MainGameLayer(sceneManager), cocos.text.Label(text = "health", position = (config.SCREEN_WIDTH // 12, config.SCREEN_HEIGHT // 12)), playerSpawn = (550, 200))
-    ]
-    sceneManager.loadScenes(cocos.scene.Scene(MainMenu(sceneManager, title = "Data Snake")), cocos.scene.Scene(cocos.text.Label(text = "You lost this level!!!", position = (config.SCREEN_WIDTH // 2, config.SCREEN_HEIGHT // 2), font_size = 32, anchor_x = "center", anchor_y = "center")), None, levels)
+
+    loserScene = cocos.scene.Scene(TemporaryLabel(sceneManager, loserScene = True, text = "You lost that level.  :("))
+    winnerScene = cocos.scene.Scene(TemporaryLabel(sceneManager, text = "You won that level!  :)"))
+    sceneManager.loadScenes(cocos.scene.Scene(MainMenu(sceneManager, title = "Data Snake")), loserScene, winnerScene, getLevels(sceneManager))
     sceneManager.run()

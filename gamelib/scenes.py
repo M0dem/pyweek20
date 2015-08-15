@@ -27,10 +27,17 @@ class SceneManager():
         self.mainMenuScene = mainMenuScene
         self.loserScene = loserScene
         self.winnerScene = winnerScene
+
+        self.loadLevels(levels)
+
+    def loadLevels(self, levels):
         self.levels = levels
 
         self.currentLevelIndex = 0
         self.updateCurrentLevelStuff()
+
+    def reloadLevels(self):
+        self.currentLevel.mainGameLayer.reset()
 
     def updateCurrentLevelStuff(self):
         self.currentLevel = self.levels[self.currentLevelIndex]
@@ -46,13 +53,17 @@ class SceneManager():
 
     def doLoserScene(self):
         self.currentLevelIndex = 0
+        self.reloadLevels()
         self.director.replace(FlipX3DTransition(self.loserScene, duration = 1))
 
     def doWinnerScene(self):
         self.currentLevelIndex = 0
         self.director.replace(FlipX3DTransition(self.winnerScene, duration = 1))
 
-    def doLevelScene(self, increment = True):
+    def doLevelScene(self, increment = True, reset = None):
+        if reset:
+            reset.dead = False
+            
         if increment:
             j = 2
 
