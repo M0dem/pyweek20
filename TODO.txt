@@ -1,5 +1,16 @@
 TODO:
 
+WHAT DO I NEED TO DO NOW?
+ * make a `WinBlock` (end of level)
+ * when restarting level after losing, reset whole MainGameLayer
+ * add arrow key control support
+ DONE: * add background image
+ FIX: * badputer shooting direction stuff
+ DONE: * have the badputer shoot multiple times
+ DONE: * have player bullet and EnemyBullet collision destroy both
+ DONE: * have badputer shoot if in range
+ DONE: * spawn badputers around
+
 README.txt
  * add game name
  * check and update game dependencies

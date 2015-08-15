@@ -1,4 +1,4 @@
-GAME NAME HERE
+Data Snake
 ===============
 
 Entry in PyWeek #20  <http://www.pyweek.org/20/>

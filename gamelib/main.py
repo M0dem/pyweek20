@@ -53,24 +53,25 @@ class MainGameLayer(cocos.layer.ScrollableLayer):
 
         self.schedule(self.update)
 
+        self.MAP_WIDTH = 1536
+        self.MAP_HEIGHT = 1024
+
+        self.background = cocos.sprite.Sprite(pyglet.image.load(data.getPath("background.png")))
+        self.background.position = (self.MAP_WIDTH // 2, self.MAP_HEIGHT // 2)
+        self.add(self.background)
 
         self.player = Player((200, 500))
         self.add(self.player)
         self.playerMapCollider = PlayerMapCollider(self.player)
         self.playerBullets = set()
 
-        self.badputer = Badputer((550, 200), self.player, (500, 700))
-        self.add(self.badputer)
         self.enemies = set()
-        self.enemies.add(self.badputer)
         self.enemyBullets = set()
-
-        # TEMP CODE, NEEDS TO HANDLE LOTS OF BADPUTERS
-        self.enemyBullet = EnemyBullet(self.badputer.position, self.badputer.direction, -16)
-        self.add(self.enemyBullet)
-        self.badputer.bullets.add(self.enemyBullet)
-        self.enemyBullets.add(self.enemyBullet)
-
+        for i in range(0, 5):
+            x = random.randint(0 + 200, self.MAP_WIDTH - 400)
+            badputer = Badputer((random.randint(0 + 200, self.MAP_WIDTH - 200), random.randint(0 + 200, self.MAP_HEIGHT - 200)), self.player, (x, x + 200))
+            self.add(badputer)
+            self.enemies.add(badputer)
 
         self.collisionManager = collision_model.CollisionManagerBruteForce()
 
@@ -88,7 +89,7 @@ class MainGameLayer(cocos.layer.ScrollableLayer):
 
         ######################################################
 
-        if "W" in keyNames:
+        if "W" in keyNames or "UP" in keyNames:
             if self.freeze:
                 # navigate bullet
                 if self.bullet.DIRECTION == "right":
@@ -103,7 +104,7 @@ class MainGameLayer(cocos.layer.ScrollableLayer):
                     self.player.doY += self.player.JUMP_SPEED
                     self.player.doGravity = True
 
-        if "S" in keyNames:
+        if "S" in keyNames or "DOWN" in keyNames:
             if self.freeze:
                 # navigate bullet
                 if self.bullet.DIRECTION == "right":
@@ -112,29 +113,30 @@ class MainGameLayer(cocos.layer.ScrollableLayer):
                 elif self.bullet.DIRECTION == "left":
                     self.bullet.rotation -= 2.5
 
-        if "A" in keyNames:
+        if "A" in keyNames or "LEFT" in keyNames:
             if not self.freeze:
                 # move left
                 self.player.doX -= self.player.WALK_SPEED * deltaTime
 
                 self.player.direction = "left"
 
-        if "D" in keyNames:
+        if "D" in keyNames or "RIGHT" in keyNames:
             if not self.freeze:
                 # move right
                 self.player.doX += self.player.WALK_SPEED * deltaTime
 
                 self.player.direction = "right"
 
-        if "A" not in keyNames and "D" not in keyNames:
-            # stop moving left-right
+        if ("A" not in keyNames and "D" not in keyNames) and ("LEFT" not in keyNames and "RIGHT" not in keyNames):
+            if not self.freeze:
+                # stop moving left-right
 
-            # MAGIC NUMBER ALERT!!!
-            if self.player.doX > -.5 and self.player.doX < .5:
-                self.player.doX = 0
+                # MAGIC NUMBER ALERT!!!
+                if self.player.doX > -.5 and self.player.doX < .5:
+                    self.player.doX = 0
 
-            else:
-                self.player.doX *= self.player.WALK_SMOOTH
+                else:
+                    self.player.doX *= self.player.WALK_SMOOTH
 
         if "SPACE" in keyNames:
             if not self.freeze:
@@ -158,29 +160,60 @@ class MainGameLayer(cocos.layer.ScrollableLayer):
 
             checkMap(self.player, self.playerMapCollider, self.sceneManager.currentLevel.mapLayer)
 
+
+
+            ############# FIX THE BAPUTER SHOOTING UP A BIT #########################
+            self.collisionManager.clear()
+            for sprite in self.enemies.union(set([self.player])):
+                self.collisionManager.add(sprite)
+
             # update the enemy `Badputer` instances
-            self.badputer.update(deltaTime)
+            for sprite in self.enemies:
+                if self.player in self.collisionManager.objs_near(sprite, sprite.RANGE) and (time.time() - sprite.lastShot) > sprite.FIRE_RATE:
+                    # shoot!
+                    if sprite.x > self.player.x:
+                        direction = "left"
+
+                    elif sprite.x < self.player.x:
+                        direction = "right"
+
+                    if direction == sprite.direction:
+                        enemyBullet = EnemyBullet(sprite.position, sprite.direction, -16)
+                        self.add(enemyBullet)
+                        sprite.bullets.add(enemyBullet)
+                        self.enemyBullets.add(enemyBullet)
+                        if sprite.y < self.player.y:
+                            enemyBullet.rotation += 270
+
+                        elif sprite.y > self.player.y:
+                            enemyBullet.rotation += 90
+
+                        sprite.lastShot = time.time()
+
+                sprite.update(deltaTime)
 
             # make the "camera" follow the player
             self.sceneManager.currentLevel.scroller.set_focus(self.player.position[0], self.player.position[1])
 
+            # check for enemy bullet hits on the player
+            self.collisionManager.clear()
+            for sprite in self.playerBullets.union(set([self.player])):
+                self.collisionManager.add(sprite)
+
             for enemyBullet in self.enemyBullets:
                 # check for EnemyBullet collisions with the player and their Bullets
-                self.collisionManager.clear()
-                for sprite in self.playerBullets.union(set([self.player])):
-                    self.collisionManager.add(sprite)
 
                 # handle collisions
                 collisions = self.collisionManager.objs_colliding(enemyBullet)
                 if collisions:
                     enemyBullet.killMe = True
                     if self.player in collisions:
-                        self.player.doDamage(random.randint(25, 75))
+                        self.player.doDamage(random.randint(15, 25))
 
         else:
             if self.bullet.killMe:
                 if self.bullet.damagePlayer:
-                    self.player.doDamage(random.randint(25, 75))
+                    self.player.doDamage(random.randint(15, 25))
 
                 bulletPosition = self.bullet.position
                 self.remove(self.bullet)
@@ -213,11 +246,11 @@ class MainGameLayer(cocos.layer.ScrollableLayer):
                         self.bullet.killMe = True
                         for sprite in self.bulletStuff:
                             if sprite in collisions:
-                                self.player.doDamage(random.randint(25, 75))
+                                self.player.doDamage(random.randint(15, 25))
 
                         for sprite in self.enemies:
                             if sprite in collisions:
-                                sprite.doDamage(random.randint(25, 75))
+                                sprite.doDamage(random.randint(40, 70))
 
                     bulletTrail = BulletTrail(self.bullet.position, self.bullet.rotation)
                     self.add(bulletTrail)
@@ -225,13 +258,23 @@ class MainGameLayer(cocos.layer.ScrollableLayer):
                     self.playerBullets.add(bulletTrail)
                     self.bullet.lastBulletTrail = self.bullet.distanceTraveled
 
+                self.collisionManager.clear()
+                for sprite in self.playerBullets:
+                    self.collisionManager.add(sprite)
+
+                for sprite in self.enemyBullets:
+                    collisions = self.collisionManager.objs_colliding(sprite)
+                    if collisions:
+                        sprite.killMe = True
+                        for playerBullet in self.playerBullets:
+                            if playerBullet in collisions:
+                                playerBullet.killMe = True
+
                 checkMap(self.bullet, self.bulletMapCollider, self.bulletMap, deltaTime = deltaTime)
 
                 # make the "camera" follow the player's bullet
                 self.sceneManager.currentLevel.scroller.set_focus(self.bullet.position[0], self.bullet.position[1])
 
-
-        ####################    IT IS SCENES TWICE HERE!!!!  #################
         if self.player.killMe and not self.dead:
             self.playerKilled()
             self.dead = True
@@ -242,6 +285,9 @@ class MainGameLayer(cocos.layer.ScrollableLayer):
             if sprite.killMe:
                 self.remove(sprite)
                 self.enemies.remove(sprite)
+
+                for bullet in sprite.bullets:
+                    bullet.killMe = True
 
         enemyBulletsTemp = self.enemyBullets.copy()
         for sprite in enemyBulletsTemp:
@@ -335,11 +381,12 @@ class Player(OurSprite):
 
 
 class Badputer(OurSprite):
-    def __init__(self, position, target, patrolX, image = pyglet.image.load(data.getPath("badputer.png"))):
+    def __init__(self, position, target, patrolX, range = 100, image = pyglet.image.load(data.getPath("badputer.png"))):
         super(Badputer, self).__init__(image)
         self.position = position
         self.target = target
         self.PATROL_X = patrolX
+        self.RANGE = range
 
         self.cshape = collision_model.AARectShape(self.position, self.width // 2, self.height // 2)
 
@@ -351,6 +398,8 @@ class Badputer(OurSprite):
         self.health = 100
         self.killMe = False
         self.bullets = set()
+        self.FIRE_RATE = .25
+        self.lastShot = time.time() - self.FIRE_RATE
 
     def update(self, deltaTime):
         if self.health <= 0:
@@ -519,21 +568,17 @@ class BulletMapCollider(SpriteMapCollider):
 
 
 class MainMenu(cocos.menu.Menu):
-    def __init__(self, sceneManager):
-        super(MainMenu, self).__init__()
+    def __init__(self, sceneManager, title = ""):
+        super(MainMenu, self).__init__(title = title)
         self.sceneManager = sceneManager
 
         l = []
         l.append(cocos.menu.MenuItem("Start Game", self.onStartGame))
-        l.append(cocos.menu.MenuItem("Options", self.onOptions))
         l.append(cocos.menu.MenuItem("Quit Game", self.onQuitGame))
         self.create_menu(l, cocos.menu.shake(), cocos.menu.shake_back())
 
     def onStartGame(self):
         self.sceneManager.doLevelScene(increment = False)
-
-    def onOptions(self):
-        pass
 
     def onQuitGame(self):
         # GOODBYE!!!  :)
@@ -550,7 +595,7 @@ def main():
     sceneManager = scenes.SceneManager(director)
     # don't change the order of `otherLayers` or something will break (like the player health text label)
     levels = [
-        scenes.Level(cocos.tiles.load(data.getPath("map.tmx"))["Tile Layer 1"], MainGameLayer(sceneManager), cocos.text.Label(text = "HEALTH", position = (config.SCREEN_WIDTH // 12, config.SCREEN_HEIGHT // 12)))
+        scenes.Level(cocos.tiles.load(data.getPath("map.tmx"))["Tile Layer 1"], MainGameLayer(sceneManager), cocos.text.Label(text = "health", position = (config.SCREEN_WIDTH // 12, config.SCREEN_HEIGHT // 12)), playerSpawn = (550, 200))
     ]
-    sceneManager.loadScenes(cocos.scene.Scene(MainMenu(sceneManager)), cocos.scene.Scene(cocos.text.Label(text = "You lost this level!!!", position = (config.SCREEN_WIDTH // 2, config.SCREEN_HEIGHT // 2), font_size = 32, anchor_x = "center", anchor_y = "center")), None, levels)
+    sceneManager.loadScenes(cocos.scene.Scene(MainMenu(sceneManager, title = "Data Snake")), cocos.scene.Scene(cocos.text.Label(text = "You lost this level!!!", position = (config.SCREEN_WIDTH // 2, config.SCREEN_HEIGHT // 2), font_size = 32, anchor_x = "center", anchor_y = "center")), None, levels)
     sceneManager.run()

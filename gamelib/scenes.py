@@ -4,15 +4,15 @@ from cocos.scenes.transitions import *
 import cocos
 
 class Level():
-    def __init__(self, mapLayer, mainGameLayer, playerHealthLayer):
+    def __init__(self, mapLayer, mainGameLayer, playerHealthLayer, playerSpawn):
         self.mapLayer = mapLayer
         self.mainGameLayer = mainGameLayer
         self.playerHealthLayer = playerHealthLayer
+        self.playerSpawn = playerSpawn
 
         self.scroller = cocos.layer.ScrollingManager()
-        self.scroller.add(self.mapLayer)
         self.scroller.add(self.mainGameLayer)
-
+        self.scroller.add(self.mapLayer)
 
 
 class SceneManager():
