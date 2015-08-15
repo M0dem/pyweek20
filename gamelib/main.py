@@ -43,9 +43,21 @@ def getLevels(sceneManager):
     levels = [
         scenes.Level(
             cocos.tiles.load(data.getPath("map.tmx"))["Tile Layer 1"],
-            MainGameLayer(sceneManager, 1),
+            MainGameLayer(sceneManager),
             cocos.text.Label(text = "", position = (config.SCREEN_WIDTH // 12, config.SCREEN_HEIGHT // 12)),
-            playerSpawn = (550, 200)
+            playerSpawn = (300, 600),
+            winBlockSpawn = (1536 - 32, 1024 - 32),
+            badputerSpawns = ((125, 875), (500, 500), (1000, 700), (1200, 450), (0, 0)),
+            levelDifficulty = .75
+        ),
+        scenes.Level(
+            cocos.tiles.load(data.getPath("map.tmx"))["Tile Layer 1"],
+            MainGameLayer(sceneManager),
+            cocos.text.Label(text = "", position = (config.SCREEN_WIDTH // 12, config.SCREEN_HEIGHT // 12)),
+            playerSpawn = (300, 600),
+            winBlockSpawn = (1536 - 32, 1024 - 32),
+            badputerSpawns = ((100, 100), (400, 400), (600, 600), (800, 800), (1000, 1000)),
+            levelDifficulty = .75
         )
     ]
 
@@ -56,10 +68,9 @@ class MainGameLayer(cocos.layer.ScrollableLayer):
 
     is_event_handler = True
 
-    def __init__(self, sceneManager, levelDifficulty):
+    def __init__(self, sceneManager):
         super(MainGameLayer, self).__init__()
         self.sceneManager = sceneManager
-        self.levelDifficulty = levelDifficulty
 
         self.freeze = False
 
@@ -74,18 +85,6 @@ class MainGameLayer(cocos.layer.ScrollableLayer):
         self.background.position = (self.MAP_WIDTH // 2, self.MAP_HEIGHT // 2)
         self.add(self.background)
 
-        self.player = Player((200, 500))
-        self.add(self.player)
-        self.playerMapCollider = PlayerMapCollider(self.player)
-        self.playerBullets = set()
-
-        self.enemies = set()
-        self.enemyBullets = set()
-        for i in range(0, 5):
-            x = random.randint(0 + 200, self.MAP_WIDTH - 400)
-            badputer = Badputer((random.randint(0 + 200, self.MAP_WIDTH - 200), random.randint(0 + 200, self.MAP_HEIGHT - 200)), self.player, (x, x + 200))
-            self.add(badputer)
-            self.enemies.add(badputer)
 
         self.collisionManager = collision_model.CollisionManagerBruteForce()
 
@@ -97,8 +96,13 @@ class MainGameLayer(cocos.layer.ScrollableLayer):
         self.tempAnimations = set()
 
         self.dead = False
+        self.isSpaceDown = False
+        self.hasSpawned = False
 
     def update(self, deltaTime):
+        if not self.hasSpawned:
+            self.doSpawn()
+
         keyNames = [pyglet.window.key.symbol_string(k) for k in self.keysPressed]
 
         ######################################################
@@ -153,7 +157,8 @@ class MainGameLayer(cocos.layer.ScrollableLayer):
                     self.player.doX *= self.player.WALK_SMOOTH
 
         if "SPACE" in keyNames:
-            if not self.freeze:
+            if not self.freeze and not self.isSpaceDown:
+                self.isSpaceDown = True
                 # shoot bullet
                 if (time.time() - self.player.lastShot) >= self.player.FIRE_RATE:
                     self.bullet = Bullet(self.player.position, self.player.direction, self.player.BULLET_OFFSET, levelDifficulty = self.levelDifficulty)
@@ -165,6 +170,9 @@ class MainGameLayer(cocos.layer.ScrollableLayer):
                     self.freeze = True
 
                     self.player.lastShot = time.time()
+
+        else:
+            self.isSpaceDown = False
 
         ######################################################
 
@@ -280,6 +288,11 @@ class MainGameLayer(cocos.layer.ScrollableLayer):
 
                 checkMap(self.bullet, self.bulletMapCollider, self.bulletMap, deltaTime = deltaTime)
 
+                # if the bullet goes of the map, kill it
+                if (self.bullet.position[0] < 0 or self.bullet.position[0] > self.MAP_WIDTH) or (self.bullet.position[1] < 0 or self.bullet.position[1] > self.MAP_HEIGHT):
+                    self.bullet.killMe = True
+                    self.player.doDamage(random.randint(15, 25))
+
                 # make the "camera" follow the player's bullet
                 self.sceneManager.currentLevel.scroller.set_focus(self.bullet.position[0], self.bullet.position[1])
 
@@ -315,12 +328,45 @@ class MainGameLayer(cocos.layer.ScrollableLayer):
                 self.dead = True
                 self.playerKilled()
 
+        # if the player touches the winBlock
+        self.collisionManager.clear()
+        if not self.dead:
+            if self.collisionManager.they_collide(self.player, self.winBlock):
+                if (self.numberOfEnemies - len(self.enemies)) >= int(float(2) / 3 * self.numberOfEnemies):
+                    self.dead = True
+                    self.playerWon()
+
         # update the player health label
         playerHealthLayer = self.sceneManager.currentLevel.playerHealthLayer
-        super(playerHealthLayer.__class__, playerHealthLayer).__init__(text = str(+self.player.health), position = playerHealthLayer.position, font_size = 24, anchor_x = "center", anchor_y = "center")
+        super(playerHealthLayer.__class__, playerHealthLayer).__init__(text = str(+self.player.health), position = playerHealthLayer.position, font_size = 24, anchor_x = "center", anchor_y = "center", color = (0, 155, 20, 255))
+
+    def doSpawn(self):
+        self.hasSpawned = True
+        self.level = self.sceneManager.currentLevel
+        self.levelDifficulty = self.level.levelDifficulty
+
+        self.player = Player(self.level.playerSpawn)
+        self.add(self.player)
+        self.playerMapCollider = PlayerMapCollider(self.player)
+        self.playerBullets = set()
+
+        self.winBlock = WinBlock(self.level.winBlockSpawn)
+        self.add(self.winBlock)
+
+        self.enemies = set()
+        self.enemyBullets = set()
+        self.numberOfEnemies = len(self.level.badputerSpawns)
+        for spawn in self.level.badputerSpawns:
+            badputer = Badputer(spawn, self.player, (spawn[0], spawn[0] + 200))
+            self.add(badputer)
+            self.enemies.add(badputer)
+
 
     def playerKilled(self):
         self.sceneManager.doLoserScene()
+
+    def playerWon(self):
+        self.sceneManager.doWinnerScene()
 
     def reset(self):
         self.sceneManager.loadLevels(getLevels(self.sceneManager))
@@ -462,13 +508,13 @@ class Bullet(OurSprite):
         self.setSpeed(levelDifficulty)
 
     def update(self, deltaTime):
-        if (time.time() - self.spawnTime) >= self.LIFETIME:
+        '''if (time.time() - self.spawnTime) >= self.LIFETIME:
             self.killMe = True
 
-        else:
-            self.distanceTraveled += self.SPEED * deltaTime
-            self.doX, self.doY = self.moveForward(self.SPEED * deltaTime, doReturn = True)
-            self.cshape.center = self.position
+        else:'''
+        self.distanceTraveled += self.SPEED * deltaTime
+        self.doX, self.doY = self.moveForward(self.SPEED * deltaTime, doReturn = True)
+        self.cshape.center = self.position
 
     def setSpeed(self, levelDifficulty):
         if self.DIRECTION == "left":
@@ -525,9 +571,11 @@ class Thruster(OurSprite):
 
 
 class WinBlock(OurSprite):
-    def __init__(position, image = pyglet.image.load(data.getPath("win_block.png"))):
+    def __init__(self, position, image = pyglet.image.load(data.getPath("win_block.png"))):
         super(WinBlock, self).__init__(image)
         self.position = position
+
+        self.cshape = collision_model.AARectShape(self.position, self.width // 2, self.height // 2)
 
 
 class SpriteMapCollider(cocos.tiles.RectMapCollider):
@@ -596,10 +644,11 @@ class MainMenu(cocos.menu.Menu):
 
 
 class TemporaryLabel(cocos.text.Label):
-    def __init__(self, sceneManager, loserScene = False, duration = 3, text = "", position = (config.SCREEN_WIDTH // 2, config.SCREEN_HEIGHT // 2), font_size = 32, anchor_x = "center", anchor_y = "center"):
+    def __init__(self, sceneManager, loserScene = False, endScene = False, duration = 3, text = "", position = (config.SCREEN_WIDTH // 2, config.SCREEN_HEIGHT // 2), font_size = 32, anchor_x = "center", anchor_y = "center"):
         super(TemporaryLabel, self).__init__(text = text, position = position, font_size = font_size, anchor_x = anchor_x, anchor_y = anchor_y)
         self.sceneManager = sceneManager
         self.loserScene = loserScene
+        self.endScene = endScene
         self.duration = duration
 
         self.age = 0
@@ -613,8 +662,16 @@ class TemporaryLabel(cocos.text.Label):
             if self.age >= self.duration:
                 self.dead = True
                 self.age = 0
+
+                print()
+                print(self.endScene)
+                print()
+
                 if self.loserScene:
                     self.sceneManager.doLevelScene(increment = False, reset = self)
+
+                elif self.endScene:
+                    self.sceneManager.doMainMenuScene()
 
                 else:
                     self.sceneManager.doLevelScene(reset = self)
@@ -628,9 +685,10 @@ def main():
     # director.show_FPS = True
 
     sceneManager = scenes.SceneManager(director)
-    # don't change the order of `otherLayers` or something will break (like the player health text label)
 
     loserScene = cocos.scene.Scene(TemporaryLabel(sceneManager, loserScene = True, text = "You lost that level.  :("))
     winnerScene = cocos.scene.Scene(TemporaryLabel(sceneManager, text = "You won that level!  :)"))
-    sceneManager.loadScenes(cocos.scene.Scene(MainMenu(sceneManager, title = "Data Snake")), loserScene, winnerScene, getLevels(sceneManager))
+    endScene = cocos.scene.Scene(TemporaryLabel(sceneManager, endScene = True, text = "You have won the whole game!  :D"))
+
+    sceneManager.loadScenes(cocos.scene.Scene(MainMenu(sceneManager, title = "Data Snake")), loserScene, winnerScene, endScene, getLevels(sceneManager))
     sceneManager.run()

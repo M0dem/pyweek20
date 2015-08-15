@@ -2,8 +2,9 @@ TODO:
 
 WHAT DO I NEED TO DO NOW?
  * make a `WinBlock` (end of level)
+ * winnerScene and next level when winblock and over 2/3 of enemies are dead
  DONE: * when restarting level after losing, reset whole MainGameLayer (???)
- FIX: * when holding SPACE, you can shoot unlimited even if negative health
+ DONE: FIX: * when holding SPACE, you can shoot unlimited even if negative health
  DONE: * add arrow key control support
  DONE: * add background image
  DONE (I think): FIX: * badputer shooting direction stuff
