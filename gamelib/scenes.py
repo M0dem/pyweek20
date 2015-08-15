@@ -78,18 +78,13 @@ class SceneManager():
         else:
             j = 1
 
-        print(self.currentLevelIndex)
         if (self.currentLevelIndex + j) <= len(self.levels):
             if increment:
                 self.currentLevelIndex += 1
                 self.updateCurrentLevelStuff()
 
-            print(self.currentLevelIndex)
-            print()
-
             self.director.replace(FlipX3DTransition(self.currentLevelScene, duration = 1))
 
         else:
             # has completed all the levels
-            print("doEndScene")
             self.doEndScene()

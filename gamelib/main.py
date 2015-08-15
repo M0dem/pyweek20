@@ -41,6 +41,7 @@ def angleFromPoints(positionA, positionB):
 
 def getLevels(sceneManager):
     levels = [
+        ################## LEVEL 1 ####################
         scenes.Level(
             cocos.tiles.load(data.getPath("map1.tmx"))["Tile Layer 1"],
             cocos.tiles.load(data.getPath("bullet_map1.tmx"))["Tile Layer 1"],
@@ -48,9 +49,10 @@ def getLevels(sceneManager):
             cocos.text.Label(text = "", position = (config.SCREEN_WIDTH // 12, config.SCREEN_HEIGHT // 12)),
             playerSpawn = (300, 600),
             winBlockSpawn = (1536 - 32, 1024 - 32),
-            badputerSpawns = ((125, 875), (500, 500), (1000, 700), (1200, 450), (0, 0)),
+            badputerSpawns = ((125, 875), (500, 500), (1000, 700), (1200, 450)),
             levelDifficulty = .75
         ),
+        ################## LEVEL 2 ####################
         scenes.Level(
             cocos.tiles.load(data.getPath("map1.tmx"))["Tile Layer 1"],
             cocos.tiles.load(data.getPath("bullet_map1.tmx"))["Tile Layer 1"],
@@ -58,10 +60,56 @@ def getLevels(sceneManager):
             cocos.text.Label(text = "", position = (config.SCREEN_WIDTH // 12, config.SCREEN_HEIGHT // 12)),
             playerSpawn = (300, 600),
             winBlockSpawn = (1536 - 32, 1024 - 32),
-            badputerSpawns = ((100, 100), (400, 400), (600, 600), (800, 800), (1000, 1000)),
-            levelDifficulty = .75
+            badputerSpawns = ((400, 400), (600, 600), (800, 800), (1000, 1000)),
+            levelDifficulty = .85
+        ),
+        ################## LEVEL 3 ####################
+        scenes.Level(
+            cocos.tiles.load(data.getPath("map2.tmx"))["Tile Layer 1"],
+            cocos.tiles.load(data.getPath("bullet_map2.tmx"))["Tile Layer 1"],
+            MainGameLayer(sceneManager),
+            cocos.text.Label(text = "", position = (config.SCREEN_WIDTH // 12, config.SCREEN_HEIGHT // 12)),
+            playerSpawn = (896, 480),
+            winBlockSpawn = (0 + 32, 1024 - 32),
+            badputerSpawns = ((300, 300), (64, 830), (640, 980), (1300, 650)),
+            levelDifficulty = 1
+        ),
+        ################## LEVEL 4 ####################
+        scenes.Level(
+            cocos.tiles.load(data.getPath("map3.tmx"))["Tile Layer 1"],
+            cocos.tiles.load(data.getPath("bullet_map3.tmx"))["Tile Layer 1"],
+            MainGameLayer(sceneManager),
+            cocos.text.Label(text = "", position = (config.SCREEN_WIDTH // 12, config.SCREEN_HEIGHT // 12)),
+            playerSpawn = (0 + 32, 1024),
+            winBlockSpawn = (1536 - 32, 64 + 32),
+            badputerSpawns = ((64, 130), (500, 350), (350, 950), (1300, 700), (900, 220)),
+            levelDifficulty = 1
+        ),
+        ################## LEVEL 5 ####################
+        scenes.Level(
+            cocos.tiles.load(data.getPath("map2.tmx"))["Tile Layer 1"],
+            cocos.tiles.load(data.getPath("bullet_map2.tmx"))["Tile Layer 1"],
+            MainGameLayer(sceneManager),
+            cocos.text.Label(text = "", position = (config.SCREEN_WIDTH // 12, config.SCREEN_HEIGHT // 12)),
+            playerSpawn = (896, 480),
+            winBlockSpawn = (0 + 32, 1024 - 32),
+            badputerSpawns = ((64, 130), (500, 350), (350, 950), (1300, 700), (900, 220)),
+            levelDifficulty = 1.3
         )
     ]
+
+    '''
+            scenes.Level(
+                cocos.tiles.load(data.getPath("map2.tmx"))["Tile Layer 1"],
+                cocos.tiles.load(data.getPath("bullet_map2.tmx"))["Tile Layer 1"],
+                MainGameLayer(sceneManager),
+                cocos.text.Label(text = "", position = (config.SCREEN_WIDTH // 12, config.SCREEN_HEIGHT // 12)),
+                playerSpawn = (0, 0),
+                winBlockSpawn = (0 - 32, 0 - 32),
+                badputerSpawns = ((0, 0), (0, 0), (0, 0), (0, 0)),
+                levelDifficulty = 1
+            )
+    '''
 
     return levels
 
@@ -315,15 +363,12 @@ class MainGameLayer(cocos.layer.ScrollableLayer):
 
         tempAnimationsTemp = self.tempAnimations.copy()
         for sprite in tempAnimationsTemp:
-            if (time.time() - sprite.startTime) >= sprite.DURATION:
+            if sprite.killMe:
                 self.remove(sprite)
                 self.tempAnimations.remove(sprite)
 
-        # if the player is lower than like |x: 0|, it is dead!
-        if not self.dead:
-            if self.player.position[1] < 0:
-                self.dead = True
-                self.playerKilled()
+            else:
+                sprite.nextFrame()
 
         # if the player touches the winBlock
         self.collisionManager.clear()
@@ -332,6 +377,12 @@ class MainGameLayer(cocos.layer.ScrollableLayer):
                 if (self.numberOfEnemies - len(self.enemies)) >= int(float(2) / 3 * self.numberOfEnemies):
                     self.dead = True
                     self.playerWon()
+
+        # if the player is lower than like |x: 0|, it is dead!
+        if not self.dead:
+            if self.player.position[1] < -100:
+                self.dead = True
+                self.playerKilled()
 
         # update the player health label
         playerHealthLayer = self.sceneManager.currentLevel.playerHealthLayer
@@ -527,7 +578,6 @@ class Bullet(OurSprite):
 
         else:
             self.SPEED = 0
-            print("DIRECTION is messed up!!!")
 
 
 class EnemyBullet(Bullet):
@@ -550,12 +600,25 @@ class BulletTrail(OurSprite):
 
 
 class Explosion(OurSprite):
-    def __init__(self, position, image = pyglet.image.load_animation(data.getPath("explosion.gif"))):
-        super(Explosion, self).__init__(image)
+    def __init__(self, position, image = pyglet.image.load(data.getPath("explosion.png"))):
+        self.frames = pyglet.image.ImageGrid(image, 1, 10)
+        self.currentFrame = 0
+        super(Explosion, self).__init__(self.frames[self.currentFrame])
         self.position = position
 
-        self.startTime = time.time()
-        self.DURATION = 1
+        self.ANIMATION_SPEED = .1
+        self.lastAnimation = time.time() - self.ANIMATION_SPEED
+        self.killMe = False
+
+    def nextFrame(self):
+        if ((time.time() - self.lastAnimation) >= self.ANIMATION_SPEED) and not self.killMe:
+            if self.currentFrame + 1 == len(self.frames):
+                self.killMe = True
+
+            else:
+                self.currentFrame += 1
+                self.image = self.frames[self.currentFrame]
+                self.lastAnimation = time.time()
 
 
 class Thruster(OurSprite):
@@ -664,10 +727,6 @@ class TemporaryLabel(cocos.text.Label):
             if self.age >= self.duration:
                 self.dead = True
                 self.age = 0
-
-                print()
-                print(self.endScene)
-                print()
 
                 if self.loserScene:
                     self.sceneManager.doLevelScene(increment = False, reset = self)
