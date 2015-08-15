@@ -4,8 +4,9 @@ from cocos.scenes.transitions import *
 import cocos
 
 class Level():
-    def __init__(self, mapLayer, mainGameLayer, playerHealthLayer, playerSpawn, winBlockSpawn, badputerSpawns, levelDifficulty = 1):
+    def __init__(self, mapLayer, bulletMapLayer, mainGameLayer, playerHealthLayer, playerSpawn, winBlockSpawn, badputerSpawns, levelDifficulty = 1):
         self.mapLayer = mapLayer
+        self.bulletMapLayer = bulletMapLayer
         self.mainGameLayer = mainGameLayer
         self.playerHealthLayer = playerHealthLayer
         self.playerSpawn = playerSpawn

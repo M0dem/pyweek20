@@ -42,7 +42,8 @@ def angleFromPoints(positionA, positionB):
 def getLevels(sceneManager):
     levels = [
         scenes.Level(
-            cocos.tiles.load(data.getPath("map.tmx"))["Tile Layer 1"],
+            cocos.tiles.load(data.getPath("map1.tmx"))["Tile Layer 1"],
+            cocos.tiles.load(data.getPath("bullet_map1.tmx"))["Tile Layer 1"],
             MainGameLayer(sceneManager),
             cocos.text.Label(text = "", position = (config.SCREEN_WIDTH // 12, config.SCREEN_HEIGHT // 12)),
             playerSpawn = (300, 600),
@@ -51,7 +52,8 @@ def getLevels(sceneManager):
             levelDifficulty = .75
         ),
         scenes.Level(
-            cocos.tiles.load(data.getPath("map.tmx"))["Tile Layer 1"],
+            cocos.tiles.load(data.getPath("map1.tmx"))["Tile Layer 1"],
+            cocos.tiles.load(data.getPath("bullet_map1.tmx"))["Tile Layer 1"],
             MainGameLayer(sceneManager),
             cocos.text.Label(text = "", position = (config.SCREEN_WIDTH // 12, config.SCREEN_HEIGHT // 12)),
             playerSpawn = (300, 600),
@@ -87,11 +89,6 @@ class MainGameLayer(cocos.layer.ScrollableLayer):
 
 
         self.collisionManager = collision_model.CollisionManagerBruteForce()
-
-        self.bullet = None
-        self.bulletStuff = set()
-        self.bulletMap = cocos.tiles.load(data.getPath("bullet_map.tmx"))["Tile Layer 1"]
-        self.bulletMapCollider = None
 
         self.tempAnimations = set()
 
@@ -344,6 +341,11 @@ class MainGameLayer(cocos.layer.ScrollableLayer):
         self.hasSpawned = True
         self.level = self.sceneManager.currentLevel
         self.levelDifficulty = self.level.levelDifficulty
+
+        self.bullet = None
+        self.bulletStuff = set()
+        self.bulletMap = self.level.bulletMapLayer
+        self.bulletMapCollider = None
 
         self.player = Player(self.level.playerSpawn)
         self.add(self.player)
