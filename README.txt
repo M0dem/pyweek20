@@ -29,8 +29,20 @@ Othewise open a terminal / console and "cd" to the game directory and run:
 
 HOW TO PLAY THE GAME:
 
-
+  Use the WASD or arrow keys to control the player.
+  Use the space bar to shoot and control the bullet in flight with W and A keys
+    or the UP and DOWN arrow keys.
+  (When you shoot, everything but your bullet freezes)
+  (Tip: when a Badputer shoots at you, try to hit its bullet with your own)
+  (Warning: there is some type of bug with the barricade blocks (yellow with
+    black stripes), don't WALK too close to it (you can jump all over and around
+    it, just don't WALK up to it to touch it) :P)
+  You have to kill atleast ~2/3 of enemies to be able to go through the
+    blue teleporter.
+  Once you have killed the correct number of enemies, find the blue teleporter
+    and touch it.
 
 
 
 LICENSE:
+  see LICENSE.txt
